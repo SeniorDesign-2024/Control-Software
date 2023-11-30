@@ -25,7 +25,7 @@ void setup ()
 
   pinMode(SAFETY_SWITCH, INPUT_PULLUP);
 
-  //LCD_SERIAL.begin(9600);
+  LCD_SERIAL.begin(9600);
 
   pinMode(VOLTAGE_SENS, INPUT);
 
@@ -40,6 +40,11 @@ void setup ()
 
 void loop ()
 {
+  
+
+
+
+  /*  LED Test Code
   digitalWrite(COIL1, HIGH);
   digitalWrite(COIL2, HIGH);
   digitalWrite(CHARGING_LED, HIGH);
@@ -58,5 +63,51 @@ void loop ()
   digitalWrite(DISCHARGE_ENABLE, LOW);
   delay(1000);
   Serial.println("OFF");
+  */
+}
 
+void charge()
+{
+  bool charging = false;
+  float voltage = 0;
+
+  while (1)
+  {
+    if (SAFETY_STATE == 0)
+    {
+      return;
+    }
+    
+    voltage = readVoltage();
+    if (voltage >= MAX_VOLT)
+    {
+      discharge(false);
+      return;
+    }
+
+    if (voltage >= TARGET_VOLT)
+      return;
+    else if (!charging) 
+    {
+      digitalWrite(CHARGING_LED, HIGH);
+      digitalWrite(CHARGE_ENABLE, HIGH);
+    }
+  }
+}
+
+void discharge(bool fullDischarge)
+{
+  
+}
+
+void coilFire()
+{
+  
+}
+
+float readVoltage()
+{
+  float voltage = 0;
+  voltage = map(analogRead(VOLTAGE_SENS), VOLT_ADC_MIN, VOLT_ADC_MAX, MIN_VOLT, MAX_VOLT);
+  return voltage;
 }
