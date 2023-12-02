@@ -1,5 +1,7 @@
 #include "coilgun.h"
 
+
+
 void setup ()
 {
   pinMode(CHARGING_LED, OUTPUT);
@@ -8,8 +10,8 @@ void setup ()
   pinMode(CHARGED_LED, OUTPUT);
   digitalWrite(CHARGED_LED, LOW);
 
-  pinMode(DISCHARING_LED, OUTPUT);
-  digitalWrite(DISCHARING_LED, LOW);
+  pinMode(DISCHARGING_LED, OUTPUT);
+  digitalWrite(DISCHARGING_LED, LOW);
 
   pinMode(CHARGE_ENABLE, OUTPUT);
   digitalWrite(CHARGE_ENABLE, LOW);
@@ -24,6 +26,7 @@ void setup ()
   pinMode(TRIGGER, INPUT_PULLUP);
 
   pinMode(SAFETY_SWITCH, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(SAFETY_SWITCH), interrupt, RISING);
 
   LCD_SERIAL.begin(9600);
 
@@ -38,12 +41,45 @@ void setup ()
   Serial.begin(9600); 
 }
 
+void interrupt()
+{
+  //digitalWrite(DISCHARGING_LED, HIGH);
+  //digitalWrite(DISCHARGE_ENABLE, HIGH);
+  SAFETY_STATE = 0;
+  Edischarge();
+  
+}
+
 void loop ()
 {
   
+  
+  while (!SAFETY_STATE)
+  {
+    if (!digitalRead(SAFETY_SWITCH))
+    {
+      SAFETY_STATE = true;
+    }
+  }
+  if (SAFETY_STATE)
+  {
+    float volt = readVoltage();
+    if (!digitalRead(TRIGGER) && (readVoltage()>=TARGET_VOLT))
+    {
+      coilFire();
+    }
+    Serial.println(volt);
+    if (volt>=TARGET_VOLT)
+      digitalWrite(CHARGED_LED, HIGH);
+    else
+      digitalWrite(CHARGED_LED, LOW);
 
-
-
+    //charge();
+   // discharge(false);
+    //if (readVoltage()>30)
+    //  discharge(true);
+  }
+  
   /*  LED Test Code
   digitalWrite(COIL1, HIGH);
   digitalWrite(COIL2, HIGH);
@@ -75,6 +111,8 @@ void charge()
   {
     if (SAFETY_STATE == 0)
     {
+      digitalWrite(CHARGING_LED, LOW);
+      digitalWrite(CHARGE_ENABLE, LOW);
       return;
     }
     
@@ -86,23 +124,98 @@ void charge()
     }
 
     if (voltage >= TARGET_VOLT)
+    {
+      digitalWrite(CHARGING_LED, LOW);
+      digitalWrite(CHARGE_ENABLE, LOW);
       return;
+    } 
     else if (!charging) 
     {
       digitalWrite(CHARGING_LED, HIGH);
       digitalWrite(CHARGE_ENABLE, HIGH);
+      charging = true;
     }
   }
 }
 
 void discharge(bool fullDischarge)
 {
-  
+  bool discharging = false;
+  float voltage = 0;
+
+  while (1)
+  {
+    if (SAFETY_STATE == 0)
+    {
+      digitalWrite(DISCHARGING_LED, LOW);
+      digitalWrite(DISCHARGE_ENABLE, LOW);
+      return;
+    }
+    
+    voltage = readVoltage();
+    if (fullDischarge)  // discharge to 0
+    {
+      if(!discharging)
+      {
+        digitalWrite(DISCHARGING_LED, HIGH);
+        digitalWrite(DISCHARGE_ENABLE, HIGH);
+        discharging = true;
+      }
+      if (voltage <= (MIN_VOLT+10))
+      {
+        digitalWrite(DISCHARGING_LED, LOW);
+        digitalWrite(DISCHARGE_ENABLE, LOW);
+        return;
+      } 
+    }
+    else if (!fullDischarge) // go to target voltage i case of over charging
+    {
+      if(!discharging)
+      {
+        digitalWrite(DISCHARGING_LED, HIGH);
+        digitalWrite(DISCHARGE_ENABLE, HIGH);
+        discharging = true;
+      }
+      else if (voltage <= TARGET_VOLT)
+      {
+        digitalWrite(DISCHARGING_LED, LOW);
+        digitalWrite(DISCHARGE_ENABLE, LOW);
+        return;
+      } 
+    }
+    
+  }
+}
+
+void Edischarge()
+{
+  bool discharging = false;
+  float voltage = 0;
+  voltage = readVoltage();
+  if(!discharging)
+  {
+    digitalWrite(DISCHARGING_LED, HIGH);
+    digitalWrite(DISCHARGE_ENABLE, HIGH);
+    discharging = true;
+  }
+  if (voltage <= (MIN_VOLT+10))
+  {
+    digitalWrite(DISCHARGING_LED, LOW);
+    digitalWrite(DISCHARGE_ENABLE, LOW);
+    return;
+  } 
 }
 
 void coilFire()
 {
-  
+  cli();
+  digitalWrite(COIL1, HIGH);
+  while(digitalRead(OPTICAL_SENS_1));
+  digitalWrite(COIL1, LOW);
+  digitalWrite(COIL2, HIGH);
+  while(digitalRead(OPTICAL_SENS_2));
+  digitalWrite(COIL2, LOW);
+  sei();
 }
 
 float readVoltage()
