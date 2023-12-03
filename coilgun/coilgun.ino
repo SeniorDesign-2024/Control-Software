@@ -1,4 +1,5 @@
 #include "coilgun.h"
+#include <string.h>
 
 
 
@@ -28,7 +29,7 @@ void setup ()
   pinMode(SAFETY_SWITCH, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(SAFETY_SWITCH), interrupt, RISING);
 
-  LCD_SERIAL.begin(9600);
+  LCD_SERIAL.begin(115200);
 
   pinMode(VOLTAGE_SENS, INPUT);
 
@@ -38,42 +39,48 @@ void setup ()
   pinMode(COIL2, OUTPUT);
   digitalWrite(COIL2, LOW);
 
-  Serial.begin(9600); 
+  Serial.begin(115200); 
 }
 
 void interrupt()
 {
-  //digitalWrite(DISCHARGING_LED, HIGH);
-  //digitalWrite(DISCHARGE_ENABLE, HIGH);
+  digitalWrite(CHARGING_LED, LOW);
+  digitalWrite(CHARGED_LED, LOW);
+  digitalWrite(DISCHARGING_LED, LOW);
+  digitalWrite(CHARGE_ENABLE, LOW);
+  digitalWrite(DISCHARGE_ENABLE, LOW);
+
   SAFETY_STATE = 0;
   Edischarge();
-  
 }
 
 void loop ()
 {
-  
-  
-  while (!SAFETY_STATE)
+
+  if (!digitalRead(SAFETY_SWITCH))
   {
-    if (!digitalRead(SAFETY_SWITCH))
-    {
-      SAFETY_STATE = true;
-    }
+    SAFETY_STATE = true;
   }
   if (SAFETY_STATE)
   {
-    float volt = readVoltage();
-    if (!digitalRead(TRIGGER) && (readVoltage()>=TARGET_VOLT))
-    {
-      coilFire();
-    }
+    int volt = readVoltage();
     Serial.println(volt);
     if (volt>=TARGET_VOLT)
       digitalWrite(CHARGED_LED, HIGH);
     else
       digitalWrite(CHARGED_LED, LOW);
+    LCD_SERIAL.print("n0.val=");
+    LCD_SERIAL.print(volt);
+    LCDWrite();
+    LCDRead();
 
+    if (!digitalRead(TRIGGER) && (readVoltage()>=TARGET_VOLT))
+    {
+      coilFire();
+    }
+    
+    
+    
     //charge();
    // discharge(false);
     //if (readVoltage()>30)
@@ -102,10 +109,28 @@ void loop ()
   */
 }
 
+void LCDRead ()
+{
+  if (LCD_SERIAL.available()) 
+  {
+    command = LCD_SERIAL.readStringUntil('\n');
+    command.trim(); 
+    Serial.print("Received Command: ");
+    Serial.println(command);
+  }
+}
+
+void LCDWrite ()
+{
+  LCD_SERIAL.print(0xff);
+  LCD_SERIAL.print(0xff);
+  LCD_SERIAL.print(0xff);
+}
+
 void charge()
 {
   bool charging = false;
-  float voltage = 0;
+  int voltage = 0;
 
   while (1)
   {
@@ -141,7 +166,7 @@ void charge()
 void discharge(bool fullDischarge)
 {
   bool discharging = false;
-  float voltage = 0;
+  int voltage = 0;
 
   while (1)
   {
@@ -168,7 +193,7 @@ void discharge(bool fullDischarge)
         return;
       } 
     }
-    else if (!fullDischarge) // go to target voltage i case of over charging
+    else if (!fullDischarge) // go to target voltage in case of over charging
     {
       if(!discharging)
       {
@@ -190,7 +215,7 @@ void discharge(bool fullDischarge)
 void Edischarge()
 {
   bool discharging = false;
-  float voltage = 0;
+  int voltage = 0;
   voltage = readVoltage();
   if(!discharging)
   {
@@ -218,9 +243,9 @@ void coilFire()
   sei();
 }
 
-float readVoltage()
+int readVoltage()
 {
-  float voltage = 0;
+  int voltage = 0;
   voltage = map(analogRead(VOLTAGE_SENS), VOLT_ADC_MIN, VOLT_ADC_MAX, MIN_VOLT, MAX_VOLT);
   return voltage;
 }

@@ -7,9 +7,10 @@ volatile bool SAFETY_STATE =      0; // 0 = safe (discharge gun), 1 = fire (norm
 #define COIL_NUM                  2
 #define VOLT_ADC_MIN              30
 #define VOLT_ADC_MAX              1023
-const float MAX_VOLT =            400;
-const float TARGET_VOLT =         350;
-const float MIN_VOLT =            0;
+String command = "null";
+const int MAX_VOLT =            400;
+const int TARGET_VOLT =         350;
+const int MIN_VOLT =            0;
 
 // -------- PIN DEFINITIONS --------
 #define CHARGING_LED        5
@@ -29,10 +30,12 @@ const float MIN_VOLT =            0;
 #define COIL2               18
 
 void interrupt();
+void LCDRead ();
+void LCDWrite ();
 void charge();
 void discharge(bool fullDischarge);
 void Edischarge();
 void coilFire();
-float readVoltage();
+int readVoltage();
 
 #endif
